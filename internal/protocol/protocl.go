@@ -1,7 +1,9 @@
 package protocol
 
 import (
+	"41/internal/sender"
 	"41/internal/utils"
+	"strconv"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
@@ -10,7 +12,7 @@ import (
 
 func ProtocolHander(ctx *cli.Context) (err error) {
 	var confLogger = utils.GetLogger("ProtocolHander")
-	einterface, snapshotLength, filter := ctx.String("interface"), ctx.Int("snapshot-length"), ctx.String("filter")
+	einterface, snapshotLength, port := ctx.String("interface"), ctx.Int("snapshot-length"), ctx.Int("port")
 
 	handle, err := pcap.OpenLive(einterface, int32(snapshotLength), false, pcap.BlockForever)
 	if err != nil {
@@ -19,20 +21,25 @@ func ProtocolHander(ctx *cli.Context) (err error) {
 	}
 	defer handle.Close()
 
-	if ctx.Args().Present() {
-		if err = handle.SetBPFFilter(einterface + " " + string(snapshotLength) + " " + filter); err != nil {
-			confLogger.Fatal(err)
-			return
-		}
+	filter := "tcp and port " + strconv.Itoa(port)
+	if err = handle.SetBPFFilter(filter); err != nil {
+		confLogger.Fatal(err)
+		return
+	} else {
+		confLogger.Printf("only capturing tcp port %d packets\n", port)
 	}
 
+	sender := sender.NewKafkaSender(ctx)
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	confLogger.Println("start...")
+
 	switch ctx.String("protocol") {
 	case "http1":
-		http1Hander(packetSource, ctx)
+		http1Hander(packetSource, ctx, sender)
 	default:
 		confLogger.Fatal("unkown protocol")
 		return
 	}
+
 	return
 }

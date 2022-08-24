@@ -56,7 +56,5 @@ func (r *HTTPRequestResponseRecord) EncodeToBytes() []byte {
 	buffer.WriteString("\n")
 	result := buffer.Bytes()
 
-	confLogger.Println(result)
-	confLogger.Println("\n")
 	return result
 }

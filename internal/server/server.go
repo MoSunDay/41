@@ -13,7 +13,7 @@ func NewServer() *cli.App {
 	server.Flags = []cli.Flag{
 		&cli.IntFlag{
 			Name:    "snapshot-length",
-			Aliases: []string{"s"},
+			Aliases: []string{"l"},
 			Value:   262144,
 		},
 		&cli.StringFlag{
@@ -27,29 +27,42 @@ func NewServer() *cli.App {
 			Usage:   "filter packet",
 		},
 		&cli.StringFlag{
-			Name:    "protocol",
+			Name:  "protocol",
+			Usage: "the target protocol that the package body needs to interpret",
+			Value: "http1",
+		},
+		&cli.IntFlag{
+			Name:    "port",
+			Usage:   "the target port that the package body needs to interpret",
 			Aliases: []string{"p"},
-			Usage:   "the target protocol that the package body needs to interpret",
+			Value:   80,
 		},
 		&cli.StringFlag{
 			Name:    "kafka-topic",
 			Aliases: []string{"t"},
 			Usage:   "kafka's topic",
+			Value:   "test-41",
 		},
 		&cli.StringFlag{
-			Name:    "kafka-addr",
-			Aliases: []string{"a"},
-			Usage:   "kafka's addr",
-		},
-		&cli.StringFlag{
-			Name:    "kafka-topis-partitions",
-			Aliases: []string{"a"},
-			Usage:   "the number of kafka topic partitions",
+			Name:    "kafka-host",
+			Aliases: []string{"d"},
+			Usage:   "kafka's host",
+			Value:   "127.0.0.1:9092",
 		},
 		&cli.IntFlag{
-			Name:    "packet-queue-length",
+			Name:    "kafka-topic-partitions",
+			Aliases: []string{"a"},
+			Value:   10,
+		},
+		&cli.IntFlag{
+			Name:    "kafka-send-interval",
+			Aliases: []string{"s"},
+			Value:   5,
+		},
+		&cli.IntFlag{
+			Name:    "kafka-send-queue",
 			Aliases: []string{"q"},
-			Value:   262144,
+			Value:   500000,
 		},
 	}
 	server.Action = protocol.ProtocolHander

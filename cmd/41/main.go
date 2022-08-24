@@ -3,6 +3,7 @@ package main
 import (
 	"41/internal/server"
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +20,13 @@ func main() {
 	go func() {
 		<-c
 		cancel()
+	}()
+
+	go func() {
+		http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("Hello"))
+		})
+		http.ListenAndServe("127.0.0.1:8001", nil)
 	}()
 
 	if err := server.RunContext(ctx, os.Args); err != nil {
