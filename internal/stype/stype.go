@@ -3,6 +3,7 @@ package stype
 import (
 	"41/internal/utils"
 	"bytes"
+	"strconv"
 	"time"
 
 	"github.com/google/gopacket/layers"
@@ -21,18 +22,17 @@ type HTTPRequestResponseRecord struct {
 
 func (r *HTTPRequestResponseRecord) EncodeToString() string {
 	var buffer bytes.Buffer
-	buffer.WriteString(r.SrcPort.String() + "->" + r.DstPort.String())
-	buffer.WriteString("\n")
+	buffer.WriteString("#" + r.SrcPort.String() + "->" + r.DstPort.String())
+	buffer.WriteString("\n#")
 	for _, item := range r.RequestBody {
 		buffer.WriteByte(item)
 	}
-	buffer.WriteString("\n")
+	buffer.WriteString("\n#")
 	for _, item := range r.ResponseBody {
 		buffer.WriteByte(item)
 	}
-	buffer.WriteString("\n")
-	buffer.WriteString("cost: " + r.ResponseTime.Sub(r.RequestTime).String())
-	buffer.WriteString("\n")
+	buffer.WriteString("\n#")
+	buffer.WriteString(strconv.FormatInt(r.ResponseTime.Sub(r.RequestTime).Milliseconds(), 10))
 	result := buffer.String()
 
 	confLogger.Println(result)
@@ -42,18 +42,21 @@ func (r *HTTPRequestResponseRecord) EncodeToString() string {
 
 func (r *HTTPRequestResponseRecord) EncodeToBytes() []byte {
 	var buffer bytes.Buffer
-	buffer.WriteString(r.SrcPort.String() + "->" + r.DstPort.String())
+	buffer.WriteString("#" + r.SrcPort.String() + "->" + r.DstPort.String())
 	buffer.WriteByte('\n')
+	buffer.WriteByte('#')
 	for _, item := range r.RequestBody {
 		buffer.WriteByte(item)
 	}
 	buffer.WriteByte('\n')
+	buffer.WriteByte('#')
 	for _, item := range r.ResponseBody {
 		buffer.WriteByte(item)
 	}
 	buffer.WriteByte('\n')
-	buffer.WriteString("cost: " + r.ResponseTime.Sub(r.RequestTime).String())
-	buffer.WriteString("\n")
+	buffer.WriteByte('#')
+	buffer.WriteString(strconv.FormatInt(r.ResponseTime.Sub(r.RequestTime).Milliseconds(), 10))
+
 	result := buffer.Bytes()
 
 	return result

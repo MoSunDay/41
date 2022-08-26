@@ -67,7 +67,6 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 							item.ResponseBody = tcpLayer.BaseLayer.Payload
 							item.ResponseTime = timestamp
 							item.DstPort = tcpLayer.SrcPort
-							item.EncodeToString()
 							sender.Send(&item)
 							cmap.Pop(fd)
 						}

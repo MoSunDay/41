@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gookit/color"
 )
@@ -24,7 +25,9 @@ func main() {
 
 	go func() {
 		http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("Hello"))
+			time.Sleep(10 * time.Millisecond)
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"status":"OK", "a": "a", "b": {"c": "d"}}`))
 		})
 		http.ListenAndServe("127.0.0.1:8001", nil)
 	}()

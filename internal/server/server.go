@@ -50,8 +50,8 @@ func NewServer() *cli.App {
 			Value:   "127.0.0.1:9092",
 		},
 		&cli.IntFlag{
-			Name:    "kafka-topic-partitions",
-			Aliases: []string{"a"},
+			Name:    "kafka-worker",
+			Aliases: []string{"w"},
 			Value:   10,
 		},
 		&cli.IntFlag{
