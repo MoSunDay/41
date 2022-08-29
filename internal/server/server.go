@@ -14,7 +14,7 @@ func NewServer() *cli.App {
 		&cli.IntFlag{
 			Name:    "snapshot-length",
 			Aliases: []string{"l"},
-			Value:   262144,
+			Value:   10240,
 		},
 		&cli.StringFlag{
 			Name:     "interface",

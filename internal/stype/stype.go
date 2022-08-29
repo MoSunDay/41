@@ -12,6 +12,7 @@ import (
 var confLogger = utils.GetLogger("stype")
 
 type HTTPRequestResponseRecord struct {
+	IP           string
 	SrcPort      layers.TCPPort
 	DstPort      layers.TCPPort
 	RequestTime  time.Time
@@ -22,7 +23,10 @@ type HTTPRequestResponseRecord struct {
 
 func (r *HTTPRequestResponseRecord) EncodeToString() string {
 	var buffer bytes.Buffer
-	buffer.WriteString("#" + r.SrcPort.String() + "->" + r.DstPort.String())
+	buffer.WriteString("#" + strconv.FormatInt(r.RequestTime.UnixMilli(), 10))
+	buffer.WriteString("\n#" + r.SrcPort.String() + "->" + r.DstPort.String())
+	buffer.WriteString("\n#" + r.IP)
+	buffer.WriteString("\n#")
 	buffer.WriteString("\n#")
 	for _, item := range r.RequestBody {
 		buffer.WriteByte(item)
@@ -42,6 +46,9 @@ func (r *HTTPRequestResponseRecord) EncodeToString() string {
 
 func (r *HTTPRequestResponseRecord) EncodeToBytes() []byte {
 	var buffer bytes.Buffer
+	buffer.WriteString("#" + strconv.FormatInt(r.RequestTime.UnixMilli(), 10))
+	buffer.WriteString("\n#" + r.SrcPort.String() + "->" + r.DstPort.String())
+	buffer.WriteString("\n#" + r.IP)
 	buffer.WriteString("#" + r.SrcPort.String() + "->" + r.DstPort.String())
 	buffer.WriteByte('\n')
 	buffer.WriteByte('#')

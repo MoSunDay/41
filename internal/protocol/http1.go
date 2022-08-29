@@ -20,6 +20,7 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 	var tcpLayer layers.TCP
 	port := layers.TCPPort(ctx.Int("port"))
 	cmap := cmap.New(64)
+	localIP := utils.GetLocalIpV4(ctx.String("interface"))
 
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
@@ -75,6 +76,7 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 							RequestBody: tcpLayer.BaseLayer.Payload,
 							RequestTime: timestamp,
 							SrcPort:     tcpLayer.SrcPort,
+							IP: localIP,
 						}
 						cmap.Set(strconv.Itoa(int(tcpLayer.SrcPort)), rrrecord)
 					}
