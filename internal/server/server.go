@@ -14,12 +14,18 @@ func NewServer() *cli.App {
 		&cli.IntFlag{
 			Name:    "snapshot-length",
 			Aliases: []string{"l"},
-			Value:   10240,
+			Value:   5120,
 		},
 		&cli.StringFlag{
 			Name:     "interface",
 			Aliases:  []string{"i"},
 			Required: true,
+		},
+		&cli.IntFlag{
+			Name:    "buffer",
+			Aliases: []string{"b"},
+			Value:   100,
+			Usage:   "buffer size(M)",
 		},
 		&cli.StringFlag{
 			Name:    "filter",

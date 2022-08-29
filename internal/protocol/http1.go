@@ -13,7 +13,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender sender.Sender) {
+func http1Hander(packetSource gopacket.ZeroCopyPacketDataSource, ctx *cli.Context, sender sender.Sender) {
 	var confLogger = utils.GetLogger("http1Hander")
 	var ethLayer layers.Ethernet
 	var ipLayer layers.IPv4
@@ -35,6 +35,7 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 						item.ResponseTime = timestamp
 						item.DstPort = 0
 						cmap.Pop(fd)
+						confLogger.Println("timeout: ", fd)
 						// item.EncodeToString()
 						sender.Send(&item)
 					}
@@ -42,27 +43,28 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 			}
 		}
 	}()
-
-	for {
-		select {
-		case packet := <-packetSource.Packets():
+	go func() {
+		for {
+			data, ci, err := packetSource.ZeroCopyReadPacketData()
+			if err != nil {
+				confLogger.Fatal(err)
+			}
 			parser := gopacket.NewDecodingLayerParser(
 				layers.LayerTypeEthernet,
 				&ethLayer,
 				&ipLayer,
 				&tcpLayer,
 			)
-
 			foundLayerTypes := []gopacket.LayerType{}
-			parser.DecodeLayers(packet.Data(), &foundLayerTypes)
+			parser.DecodeLayers(data, &foundLayerTypes)
 			for _, layerType := range foundLayerTypes {
 				if layerType == layers.LayerTypeTCP {
 					if len(tcpLayer.BaseLayer.Payload) == 0 {
 						continue
 					}
-					timestamp := packet.Metadata().Timestamp
+					timestamp := ci.Timestamp
 					if tcpLayer.SrcPort == port {
-						fd := strconv.Itoa(int(tcpLayer.DstPort))
+						fd := strconv.Itoa(int(tcpLayer.DstPort)) + strconv.FormatUint(uint64(tcpLayer.Seq), 10)
 						if tmp, ok := cmap.Get(fd); ok {
 							item := tmp.(stype.HTTPRequestResponseRecord)
 							item.ResponseBody = tcpLayer.BaseLayer.Payload
@@ -76,15 +78,16 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 							RequestBody: tcpLayer.BaseLayer.Payload,
 							RequestTime: timestamp,
 							SrcPort:     tcpLayer.SrcPort,
-							IP: localIP,
+							IP:          localIP,
 						}
-						cmap.Set(strconv.Itoa(int(tcpLayer.SrcPort)), rrrecord)
+						cmap.Set(strconv.Itoa(int(tcpLayer.SrcPort))+strconv.FormatUint(uint64(tcpLayer.Ack), 10), rrrecord)
 					}
 				}
 			}
-		case <-ctx.Done():
-			confLogger.Println("41 http1 cap exiting")
-			return
 		}
-	}
+	}()
+
+	<-ctx.Done()
+	confLogger.Println("41 http1 cap exiting")
+	return
 }

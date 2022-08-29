@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/gopacket/afpacket"
 	"github.com/google/gopacket/layers"
 )
 
@@ -26,7 +27,6 @@ func (r *HTTPRequestResponseRecord) EncodeToString() string {
 	buffer.WriteString("#" + strconv.FormatInt(r.RequestTime.UnixMilli(), 10))
 	buffer.WriteString("\n#" + r.SrcPort.String() + "->" + r.DstPort.String())
 	buffer.WriteString("\n#" + r.IP)
-	buffer.WriteString("\n#")
 	buffer.WriteString("\n#")
 	for _, item := range r.RequestBody {
 		buffer.WriteByte(item)
@@ -49,7 +49,6 @@ func (r *HTTPRequestResponseRecord) EncodeToBytes() []byte {
 	buffer.WriteString("#" + strconv.FormatInt(r.RequestTime.UnixMilli(), 10))
 	buffer.WriteString("\n#" + r.SrcPort.String() + "->" + r.DstPort.String())
 	buffer.WriteString("\n#" + r.IP)
-	buffer.WriteString("#" + r.SrcPort.String() + "->" + r.DstPort.String())
 	buffer.WriteByte('\n')
 	buffer.WriteByte('#')
 	for _, item := range r.RequestBody {
@@ -67,4 +66,8 @@ func (r *HTTPRequestResponseRecord) EncodeToBytes() []byte {
 	result := buffer.Bytes()
 
 	return result
+}
+
+type afpacketHandle struct {
+	TPacket *afpacket.TPacket
 }

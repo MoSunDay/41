@@ -31,9 +31,11 @@ func (sender *KafkaSender) initConsumer() {
 		go func(index int) {
 			bufferLen := 100
 			conn := &kafka.Writer{
-				Addr:     kafka.TCP(sender.Host),
-				Topic:    sender.Topic,
-				Balancer: &kafka.LeastBytes{},
+				Addr:         kafka.TCP(sender.Host),
+				Topic:        sender.Topic,
+				RequiredAcks: 1,
+				Async:        true,
+				Balancer:     &kafka.LeastBytes{},
 			}
 
 			ticker := time.NewTicker(time.Duration(sender.Interval) * time.Second)

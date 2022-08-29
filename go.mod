@@ -8,6 +8,7 @@ require (
 	github.com/gookit/color v1.5.1
 	github.com/segmentio/kafka-go v0.4.34
 	github.com/urfave/cli/v2 v2.11.2
+	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b
 )
 
 require (
@@ -17,5 +18,5 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
 )
