@@ -12,6 +12,8 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/urfave/cli/v2"
+
+	_ "fmt"
 )
 
 func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender sender.Sender) {
@@ -32,12 +34,13 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 				if tmp, ok := cmap.Get(fd); ok {
 					item := tmp.(stype.HTTPRequestResponseRecord)
 					if len(item.ResponseBody) == 0 && time.Since(item.RequestTime).Seconds() > 30 {
-						item.ResponseBody = []byte("Request timeout")
+						var content [][]byte
+						content = append(content, []byte("Request timeout"))
+						item.ResponseBody = content
 						item.ResponseTime = timestamp
 						item.DstPort = 0
 						cmap.Pop(fd)
-						// item.EncodeToString()
-						sender.Send(&item)
+						sender.Send(item.EncodeToBytes())
 					}
 				}
 			}
@@ -71,22 +74,27 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 						if tcpLayer.SrcPort == port {
 							fd := strconv.Itoa(int(tcpLayer.DstPort)) + strconv.FormatUint(uint64(tcpLayer.Seq), 10)
 							if tmp, ok := cmap.Get(fd); ok {
-								item := tmp.(stype.HTTPRequestResponseRecord)
-								item.ResponseBody = tcpLayer.BaseLayer.Payload
-								item.ResponseTime = timestamp
-								item.DstPort = tcpLayer.SrcPort
-								// item.EncodeToString()
-								sender.Send(&item)
 								cmap.Pop(fd)
+								item := tmp.(stype.HTTPRequestResponseRecord)
+								item.ResponseBody = append(item.ResponseBody, tcpLayer.BaseLayer.Payload)
+								if item.HasFullPayload() {
+									item.ResponseTime = timestamp
+									item.DstPort = tcpLayer.SrcPort
+									sender.Send(item.EncodeToBytes())
+								} else {
+									cmap.Set(strconv.Itoa(int(tcpLayer.SrcPort))+strconv.FormatUint(uint64(tcpLayer.Ack), 10), item)
+								}
 							}
 						} else {
-							rrrecord := stype.HTTPRequestResponseRecord{
-								RequestBody: tcpLayer.BaseLayer.Payload,
-								RequestTime: timestamp,
-								SrcPort:     tcpLayer.SrcPort,
-								IP:          localIP,
+							if stype.HasRequestTitle(tcpLayer.BaseLayer.Payload) {
+								rrrecord := stype.HTTPRequestResponseRecord{
+									RequestBody: tcpLayer.BaseLayer.Payload,
+									RequestTime: timestamp,
+									SrcPort:     tcpLayer.SrcPort,
+									IP:          localIP,
+								}
+								cmap.Set(strconv.Itoa(int(tcpLayer.SrcPort))+strconv.FormatUint(uint64(tcpLayer.Ack), 10), rrrecord)
 							}
-							cmap.Set(strconv.Itoa(int(tcpLayer.SrcPort))+strconv.FormatUint(uint64(tcpLayer.Ack), 10), rrrecord)
 						}
 					}
 				}
