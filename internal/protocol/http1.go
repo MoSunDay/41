@@ -4,6 +4,7 @@ import (
 	"41/internal/sender"
 	"41/internal/stype"
 	"41/internal/utils"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func http1Hander(packetSource gopacket.ZeroCopyPacketDataSource, ctx *cli.Context, sender sender.Sender) {
+func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender sender.Sender) {
 	var confLogger = utils.GetLogger("http1Hander")
 	var ethLayer layers.Ethernet
 	var ipLayer layers.IPv4
@@ -35,7 +36,6 @@ func http1Hander(packetSource gopacket.ZeroCopyPacketDataSource, ctx *cli.Contex
 						item.ResponseTime = timestamp
 						item.DstPort = 0
 						cmap.Pop(fd)
-						confLogger.Println("timeout: ", fd)
 						// item.EncodeToString()
 						sender.Send(&item)
 					}
@@ -43,51 +43,64 @@ func http1Hander(packetSource gopacket.ZeroCopyPacketDataSource, ctx *cli.Contex
 			}
 		}
 	}()
-	go func() {
-		for {
-			data, ci, err := packetSource.ZeroCopyReadPacketData()
-			if err != nil {
-				confLogger.Fatal(err)
-			}
-			parser := gopacket.NewDecodingLayerParser(
-				layers.LayerTypeEthernet,
-				&ethLayer,
-				&ipLayer,
-				&tcpLayer,
-			)
-			foundLayerTypes := []gopacket.LayerType{}
-			parser.DecodeLayers(data, &foundLayerTypes)
-			for _, layerType := range foundLayerTypes {
-				if layerType == layers.LayerTypeTCP {
-					if len(tcpLayer.BaseLayer.Payload) == 0 {
-						continue
-					}
-					timestamp := ci.Timestamp
-					if tcpLayer.SrcPort == port {
-						fd := strconv.Itoa(int(tcpLayer.DstPort)) + strconv.FormatUint(uint64(tcpLayer.Seq), 10)
-						if tmp, ok := cmap.Get(fd); ok {
-							item := tmp.(stype.HTTPRequestResponseRecord)
-							item.ResponseBody = tcpLayer.BaseLayer.Payload
-							item.ResponseTime = timestamp
-							item.DstPort = tcpLayer.SrcPort
-							sender.Send(&item)
-							cmap.Pop(fd)
+
+	workerNum := 25
+	packetChans := make([]chan gopacket.Packet, workerNum)
+	for i := 0; i < workerNum; i++ {
+		ch := make(chan gopacket.Packet, 2500)
+		packetChans[i] = ch
+		go func(ch chan gopacket.Packet) {
+			for packet := range ch {
+				parser := gopacket.NewDecodingLayerParser(
+					layers.LayerTypeEthernet,
+					&ethLayer,
+					&ipLayer,
+					&tcpLayer,
+				)
+
+				foundLayerTypes := []gopacket.LayerType{}
+				parser.DecodeLayers(packet.Data(), &foundLayerTypes)
+				for _, layerType := range foundLayerTypes {
+					if layerType == layers.LayerTypeTCP {
+						if len(tcpLayer.BaseLayer.Payload) == 0 {
+							continue
 						}
-					} else {
-						rrrecord := stype.HTTPRequestResponseRecord{
-							RequestBody: tcpLayer.BaseLayer.Payload,
-							RequestTime: timestamp,
-							SrcPort:     tcpLayer.SrcPort,
-							IP:          localIP,
+						fmt.Println(string(tcpLayer.BaseLayer.Payload))
+						fmt.Println("size:", len(tcpLayer.BaseLayer.Payload))
+						timestamp := packet.Metadata().Timestamp
+						if tcpLayer.SrcPort == port {
+							fd := strconv.Itoa(int(tcpLayer.DstPort)) + strconv.FormatUint(uint64(tcpLayer.Seq), 10)
+							if tmp, ok := cmap.Get(fd); ok {
+								item := tmp.(stype.HTTPRequestResponseRecord)
+								item.ResponseBody = tcpLayer.BaseLayer.Payload
+								item.ResponseTime = timestamp
+								item.DstPort = tcpLayer.SrcPort
+								// item.EncodeToString()
+								sender.Send(&item)
+								cmap.Pop(fd)
+							}
+						} else {
+							rrrecord := stype.HTTPRequestResponseRecord{
+								RequestBody: tcpLayer.BaseLayer.Payload,
+								RequestTime: timestamp,
+								SrcPort:     tcpLayer.SrcPort,
+								IP:          localIP,
+							}
+							cmap.Set(strconv.Itoa(int(tcpLayer.SrcPort))+strconv.FormatUint(uint64(tcpLayer.Ack), 10), rrrecord)
 						}
-						cmap.Set(strconv.Itoa(int(tcpLayer.SrcPort))+strconv.FormatUint(uint64(tcpLayer.Ack), 10), rrrecord)
 					}
 				}
 			}
-		}
-	}()
+		}(ch)
+	}
 
-	<-ctx.Done()
-	confLogger.Println("41 http1 cap exiting")
-	return
+	for {
+		select {
+		case packet := <-packetSource.Packets():
+			packetChans[packet.Metadata().Timestamp.Nanosecond()%workerNum] <- packet
+		case <-ctx.Done():
+			confLogger.Println("41 http1 cap exiting")
+			return
+		}
+	}
 }

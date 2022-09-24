@@ -29,12 +29,12 @@ func (sender *KafkaSender) Send(item *stype.HTTPRequestResponseRecord) (err erro
 func (sender *KafkaSender) initConsumer() {
 	for i := 0; i < int(sender.Worker); i++ {
 		go func(index int) {
-			bufferLen := 100
+			bufferLen := 10
 			conn := &kafka.Writer{
 				Addr:         kafka.TCP(sender.Host),
 				Topic:        sender.Topic,
-				RequiredAcks: 1,
 				Async:        true,
+				RequiredAcks: 1,
 				Balancer:     &kafka.LeastBytes{},
 			}
 
@@ -46,12 +46,12 @@ func (sender *KafkaSender) initConsumer() {
 				select {
 				case item := <-sender.Producer:
 					messages = append(messages, kafka.Message{Value: item.EncodeToBytes()})
-					if len(messages) >= 100 {
-						messages = make([]kafka.Message, 0, bufferLen)
+					if len(messages) >= 10 {
 						err := conn.WriteMessages(context.Background(), messages...)
 						if err != nil {
 							confLogger.Println("kafka sender failed:", err)
 						}
+						messages = make([]kafka.Message, 0, bufferLen)
 					}
 				case <-ticker.C:
 					if len(messages) > 0 {

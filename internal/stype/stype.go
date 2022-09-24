@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/gopacket/afpacket"
 	"github.com/google/gopacket/layers"
 )
 
@@ -66,8 +65,4 @@ func (r *HTTPRequestResponseRecord) EncodeToBytes() []byte {
 	result := buffer.Bytes()
 
 	return result
-}
-
-type afpacketHandle struct {
-	TPacket *afpacket.TPacket
 }
