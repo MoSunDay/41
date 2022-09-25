@@ -24,10 +24,12 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	ctx, cancel := context.WithCancel(context.Background())
+
 	defer cancel()
 	go func() {
 		<-c
 		cancel()
+		os.Exit(0)
 	}()
 
 	go func() {
