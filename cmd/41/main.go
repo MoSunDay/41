@@ -34,13 +34,13 @@ func main() {
 
 	go func() {
 		http.HandleFunc("/hello", func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(1 * time.Millisecond)
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(`{"status":"OK", "a": "a", "b": {"c": "d"}}`))
 		})
 
 		http.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(40 * time.Millisecond)
 			w.Write([]byte(GetRandomString2(32000)))
 		})
 		http.ListenAndServe("127.0.0.1:8001", nil)

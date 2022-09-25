@@ -407,6 +407,7 @@ type HTTPRequestResponseRecord struct {
 	RequestTime  time.Time
 	ResponseTime time.Time
 	RequestBody  []byte
+	// ResponseBody []HTTPResponse
 	ResponseBody [][]byte
 	HTTPState    *HTTPState
 	ChunkACK     uint32
@@ -424,6 +425,41 @@ type HTTPState struct {
 	HasTrailer     bool // Trailer header?
 	Continue100    bool
 }
+
+func partition(array []int, begin, end int) int {
+	i := begin + 1
+	j := end
+
+	for i < j {
+		if array[i] > array[begin] {
+			array[i], array[j] = array[j], array[i]
+			j--
+		} else {
+			i++
+		}
+	}
+	if array[i] >= array[begin] {
+		i--
+	}
+
+	array[begin], array[i] = array[i], array[begin]
+	return i
+}
+
+// func (r *HTTPRequestResponseRecord) InertSort() {
+// 	if len(r.ResponseBody) <= 1 {
+// 		return
+// 	}
+// 	for i := 1; i < len(r.ResponseBody); i++ {
+// 		back := r.ResponseBody[i]
+// 		j := i - 1
+// 		for j >= 0 && back.Seq < r.ResponseBody[j].Seq {
+// 			r.ResponseBody[j+1] = r.ResponseBody[j]
+// 			j--
+// 		}
+// 		r.ResponseBody[j+1] = back
+// 	}
+// }
 
 func (r *HTTPRequestResponseRecord) EncodeToString() string {
 	var buffer bytes.Buffer
@@ -461,11 +497,17 @@ func (r *HTTPRequestResponseRecord) EncodeToBytes() []byte {
 	}
 	buffer.WriteByte('\n')
 	buffer.WriteByte('#')
+	// for _, item := range r.ResponseBody {
+	// 	for _, it := range item.PlayLoad {
+	// 		buffer.WriteByte(it)
+	// 	}
+	// }
 	for _, items := range r.ResponseBody {
 		for _, item := range items {
 			buffer.WriteByte(item)
 		}
 	}
+
 	buffer.WriteByte('\n')
 	buffer.WriteByte('#')
 	buffer.WriteString(strconv.FormatInt(r.ResponseTime.Sub(r.RequestTime).Milliseconds(), 10))
@@ -476,6 +518,7 @@ func (r *HTTPRequestResponseRecord) EncodeToBytes() []byte {
 }
 
 func (r *HTTPRequestResponseRecord) HasFullPayload() bool {
+	// r.InertSort()
 	if r.HTTPState == nil {
 		r.HTTPState = new(HTTPState)
 	}

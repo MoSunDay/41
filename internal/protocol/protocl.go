@@ -28,7 +28,7 @@ func ProtocolHander(ctx *cli.Context) (err error) {
 		return
 	}
 
-	err = inactive.SetBufferSize(5242880)
+	err = inactive.SetBufferSize(5242880 * 2)
 	if err != nil {
 		confLogger.Fatalf("handle buffer size error: %q, interface: %q", err, einterface)
 		return
