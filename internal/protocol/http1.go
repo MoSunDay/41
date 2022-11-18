@@ -62,7 +62,6 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 					item := tmp.(stype.HTTPRequestResponseRecord)
 					if len(item.ResponseBody) == 0 && time.Since(item.RequestTime).Seconds() > 3 {
 						content := [][]byte{[]byte("Request timeout")}
-						// item.ResponseBody = []stype.HTTPResponse{{Seq: 0, PlayLoad: []byte("Request timeout")}}
 						item.ResponseBody = content
 						item.ResponseTime = timestamp
 						item.DstPort = 0
@@ -103,26 +102,21 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 
 						if tcpLayer.SrcPort == port {
 							uuid := strconv.Itoa(int(tcpLayer.DstPort)) + strconv.FormatUint(uint64(tcpLayer.Seq), 10)
-							// confLogger.Println("resp:", uuid)
 							if tmp, ok := cmap.Pop(uuid); ok {
 								item := tmp.(stype.HTTPRequestResponseRecord)
-								// item.ResponseBody = append(item.ResponseBody, stype.HTTPResponse{Seq: tcpLayer.Seq, PlayLoad: tcpLayer.BaseLayer.Payload})
 								item.ResponseBody = append(item.ResponseBody, tcpLayer.BaseLayer.Payload)
 								if item.HasFullPayload() {
 									item.ResponseTime = timestamp
 									item.DstPort = tcpLayer.SrcPort
-									// item.EncodeToString()
 									sender.Send(item.EncodeToBytes())
 								} else {
 									item.ChunkACK = tcpLayer.Ack
 									uuid := strconv.Itoa(int(tcpLayer.DstPort)) + strconv.FormatUint(uint64(tcpLayer.Seq)+uint64(len(tcpLayer.BaseLayer.Payload)), 10)
-									// confLogger.Println("no full:", uuid)
 									cmap.Set(uuid, item)
 								}
 							}
 						} else {
 							uuid := strconv.Itoa(int(tcpLayer.SrcPort)) + strconv.FormatUint(uint64(tcpLayer.Ack), 10)
-							// confLogger.Println("create:", uuid)
 							if stype.HasRequestTitle(tcpLayer.BaseLayer.Payload) {
 								rrrecord := stype.HTTPRequestResponseRecord{
 									RequestBody: tcpLayer.BaseLayer.Payload,
@@ -138,7 +132,6 @@ func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender s
 			}
 		}(ch)
 	}
-
 	for {
 		select {
 		case packet := <-packetSource.Packets():
