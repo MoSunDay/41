@@ -4,9 +4,6 @@ import (
 	"41/internal/sender"
 	"41/internal/stype"
 	"41/internal/utils"
-	"encoding/binary"
-	"encoding/hex"
-	"net"
 	"strconv"
 	"time"
 
@@ -17,31 +14,6 @@ import (
 
 	_ "fmt"
 )
-
-func UUID(SrcIP, DstIP net.IP, SrcPort, DstPort uint16, Ack, Seq uint32, Incoming bool) string {
-	var streamID uint64
-
-	if Incoming {
-		streamID = uint64(SrcPort)<<48 | uint64(DstPort)<<32 |
-			uint64(utils.IP2int(SrcIP))
-	} else {
-		streamID = uint64(DstPort)<<48 | uint64(SrcPort)<<32 |
-			uint64(utils.IP2int(DstIP))
-	}
-
-	id := make([]byte, 12)
-	binary.BigEndian.PutUint64(id, streamID)
-
-	if Incoming {
-		binary.BigEndian.PutUint32(id[8:], Ack)
-	} else {
-		binary.BigEndian.PutUint32(id[8:], Seq)
-	}
-
-	uuidHex := make([]byte, 24)
-	hex.Encode(uuidHex[:], id[:])
-	return utils.SliceToString(uuidHex)
-}
 
 func http1Hander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender sender.Sender) {
 	var confLogger = utils.GetLogger("http1Hander")

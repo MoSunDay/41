@@ -19,6 +19,7 @@ func GetRandomString2(n int) string {
 	rand.Read(randBytes)
 	return fmt.Sprintf("%x", randBytes)
 }
+
 func main() {
 	server := server.NewServer()
 	c := make(chan os.Signal, 1)
