@@ -23,7 +23,7 @@ func http1Handler(packetSource *gopacket.PacketSource, ctx *cli.Context, sender 
 	localIP := utils.GetLocalIpV4(ctx.String("interface"))
 
 	go func() {
-		ticker := time.NewTicker(10 * time.Second)
+		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
 			timestamp := time.Now()

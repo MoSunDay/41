@@ -407,8 +407,11 @@ type HTTPRequestResponseRecord struct {
 	RequestTime  time.Time
 	ResponseTime time.Time
 	RequestBody  []byte
+	// ResponseBody []HTTPResponse
 	ResponseBody [][]byte
 	HTTPState    *HTTPState
+	ChunkACK     uint32
+	IsChunked    bool
 }
 
 type HTTPState struct {
@@ -422,6 +425,41 @@ type HTTPState struct {
 	HasTrailer     bool // Trailer header?
 	Continue100    bool
 }
+
+func partition(array []int, begin, end int) int {
+	i := begin + 1
+	j := end
+
+	for i < j {
+		if array[i] > array[begin] {
+			array[i], array[j] = array[j], array[i]
+			j--
+		} else {
+			i++
+		}
+	}
+	if array[i] >= array[begin] {
+		i--
+	}
+
+	array[begin], array[i] = array[i], array[begin]
+	return i
+}
+
+// func (r *HTTPRequestResponseRecord) InertSort() {
+// 	if len(r.ResponseBody) <= 1 {
+// 		return
+// 	}
+// 	for i := 1; i < len(r.ResponseBody); i++ {
+// 		back := r.ResponseBody[i]
+// 		j := i - 1
+// 		for j >= 0 && back.Seq < r.ResponseBody[j].Seq {
+// 			r.ResponseBody[j+1] = r.ResponseBody[j]
+// 			j--
+// 		}
+// 		r.ResponseBody[j+1] = back
+// 	}
+// }
 
 func (r *HTTPRequestResponseRecord) EncodeToString() string {
 	var buffer bytes.Buffer
@@ -459,11 +497,17 @@ func (r *HTTPRequestResponseRecord) EncodeToBytes() []byte {
 	}
 	buffer.WriteByte('\n')
 	buffer.WriteByte('#')
+	// for _, item := range r.ResponseBody {
+	// 	for _, it := range item.PlayLoad {
+	// 		buffer.WriteByte(it)
+	// 	}
+	// }
 	for _, items := range r.ResponseBody {
 		for _, item := range items {
 			buffer.WriteByte(item)
 		}
 	}
+
 	buffer.WriteByte('\n')
 	buffer.WriteByte('#')
 	buffer.WriteString(strconv.FormatInt(r.ResponseTime.Sub(r.RequestTime).Milliseconds(), 10))
@@ -474,8 +518,7 @@ func (r *HTTPRequestResponseRecord) EncodeToBytes() []byte {
 }
 
 func (r *HTTPRequestResponseRecord) HasFullPayload() bool {
-	var state *HTTPState
-
+	// r.InertSort()
 	if r.HTTPState == nil {
 		r.HTTPState = new(HTTPState)
 	}
@@ -487,10 +530,10 @@ func (r *HTTPRequestResponseRecord) HasFullPayload() bool {
 		return false
 	}
 
-	if state.HeaderStart < 1 {
+	if r.HTTPState.HeaderStart < 1 {
 		for _, data := range r.ResponseBody {
-			state.HeaderStart = MIMEHeadersStartPos(data)
-			if state.HeaderStart < 0 {
+			r.HTTPState.HeaderStart = MIMEHeadersStartPos(data)
+			if r.HTTPState.HeaderStart < 0 {
 				return false
 			} else {
 				break
@@ -498,7 +541,7 @@ func (r *HTTPRequestResponseRecord) HasFullPayload() bool {
 		}
 	}
 
-	if state.Body < 1 || state.HeaderEnd < 1 {
+	if r.HTTPState.Body < 1 || r.HTTPState.HeaderEnd < 1 {
 		var pos int
 		for _, data := range r.ResponseBody {
 			endPos := MIMEHeadersEndPos(data)
@@ -506,42 +549,42 @@ func (r *HTTPRequestResponseRecord) HasFullPayload() bool {
 				pos += len(data)
 			} else {
 				pos += endPos
-				state.HeaderEnd = pos
+				r.HTTPState.HeaderEnd = pos
 			}
 
 			if endPos > 0 {
-				state.Body = pos
+				r.HTTPState.Body = pos
 				break
 			}
 		}
 	}
 
-	if state.HeaderEnd < 1 {
+	if r.HTTPState.HeaderEnd < 1 {
 		return false
 	}
 
-	if !state.HeaderParsed {
+	if !r.HTTPState.HeaderParsed {
 		var pos int
 		for _, data := range r.ResponseBody {
 			chunked := Header(data, []byte("Transfer-Encoding"))
 
 			if len(chunked) > 0 && bytes.Index(data, []byte("chunked")) > 0 {
-				state.IsChunked = true
+				r.HTTPState.IsChunked = true
 				// trailers are generally not allowed in non-chunks body
-				state.HasTrailer = len(Header(data, []byte("Trailer"))) > 0
+				r.HTTPState.HasTrailer = len(Header(data, []byte("Trailer"))) > 0
 			} else {
 				contentLen := Header(data, []byte("Content-Length"))
-				state.BodyLen, _ = utils.AtoI(contentLen, 10)
+				r.HTTPState.BodyLen, _ = utils.AtoI(contentLen, 10)
 			}
 
 			pos += len(data)
 
 			if string(Header(data, []byte("Expect"))) == "100-continue" {
-				state.Continue100 = true
+				r.HTTPState.Continue100 = true
 			}
 
-			if state.BodyLen > 0 || pos >= state.Body {
-				state.HeaderParsed = true
+			if r.HTTPState.BodyLen > 0 || pos >= r.HTTPState.Body {
+				r.HTTPState.HeaderParsed = true
 				break
 			}
 		}
@@ -551,29 +594,33 @@ func (r *HTTPRequestResponseRecord) HasFullPayload() bool {
 	for _, data := range r.ResponseBody {
 		bodyLen += len(data)
 	}
-	bodyLen -= state.Body
+	bodyLen -= r.HTTPState.Body
 
-	if state.IsChunked {
+	if r.HTTPState.IsChunked {
 		// check chunks
 		if bodyLen < 1 {
+			confLogger.Println("bodyLen < 1")
 			return false
 		}
 
 		// check trailer headers
-		if state.HasTrailer {
+		if r.HTTPState.HasTrailer {
 			if bytes.HasSuffix(r.ResponseBody[len(r.ResponseBody)-1], []byte("\r\n\r\n")) {
 				return true
 			}
 		} else {
 			if bytes.HasSuffix(r.ResponseBody[len(r.ResponseBody)-1], []byte("0\r\n\r\n")) {
-				state.HasFullPayload = true
+				r.HTTPState.HasFullPayload = true
 				return true
 			}
 		}
+		// if len(r.ResponseBody) == 2 {
+		// 	confLogger.Println(string(r.ResponseBody[0]))
+		// 	confLogger.Println(string(r.ResponseBody[1]))
+		// }
 
 		return false
 	}
-
 	// check for content-length header
-	return state.BodyLen == bodyLen
+	return r.HTTPState.BodyLen == bodyLen
 }
