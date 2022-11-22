@@ -3,6 +3,7 @@ module 41
 go 1.18
 
 require (
+	git.woa.com/jce/jce v1.2.0
 	github.com/MoSunDay/concurrent-map v0.0.0-20191203013645-5995e9c56ca5
 	github.com/google/gopacket v1.1.19
 	github.com/gookit/color v1.5.1

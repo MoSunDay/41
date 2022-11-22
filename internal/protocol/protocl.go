@@ -10,39 +10,13 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func ProtocolHander(ctx *cli.Context) (err error) {
-	var confLogger = utils.GetLogger("ProtocolHander")
+func ProtocolHandler(ctx *cli.Context) (err error) {
+	var confLogger = utils.GetLogger("ProtocolHandler")
 	einterface, snapshotLength, port := ctx.String("interface"), ctx.Int("snapshot-length"), ctx.Int("port")
 
-	inactive, err := pcap.NewInactiveHandle(einterface)
-
-	defer inactive.CleanUp()
+	handle, err := pcap.OpenLive(einterface, int32(snapshotLength), false, pcap.BlockForever)
 	if err != nil {
-		confLogger.Fatalf("inactive handle error: %q, interface: %q", err, einterface)
-		return
-	}
-
-	err = inactive.SetSnapLen(snapshotLength)
-	if err != nil {
-		confLogger.Fatalf("snapshot length error: %q, interface: %q", err, einterface)
-		return
-	}
-
-	err = inactive.SetBufferSize(5242880)
-	if err != nil {
-		confLogger.Fatalf("handle buffer size error: %q, interface: %q", err, einterface)
-		return
-	}
-
-	err = inactive.SetTimeout(0)
-	if err != nil {
-		confLogger.Fatalf("handle buffer timeout error: %q, interface: %q", err, einterface)
-		return
-	}
-
-	handle, err := inactive.Activate()
-	if err != nil {
-		confLogger.Fatalf("PCAP Activate device error: %q, interface: %q", err, einterface)
+		confLogger.Fatal(err)
 		return
 	}
 	defer handle.Close()
@@ -61,7 +35,9 @@ func ProtocolHander(ctx *cli.Context) (err error) {
 
 	switch ctx.String("protocol") {
 	case "http1":
-		http1Hander(packetSource, ctx, sender)
+		http1Handler(packetSource, ctx, sender)
+	case "requestf":
+		requestfHandler(packetSource, ctx, sender)
 	default:
 		confLogger.Fatal("unkown protocol")
 		return

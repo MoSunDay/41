@@ -14,7 +14,7 @@ func NewServer() *cli.App {
 		&cli.IntFlag{
 			Name:    "snapshot-length",
 			Aliases: []string{"l"},
-			Value:   1000,
+			Value:   10240,
 		},
 		&cli.StringFlag{
 			Name:     "interface",
@@ -65,6 +65,6 @@ func NewServer() *cli.App {
 			Value:   500000,
 		},
 	}
-	server.Action = protocol.ProtocolHander
+	server.Action = protocol.ProtocolHandler
 	return server
 }

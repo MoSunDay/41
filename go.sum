@@ -1,3 +1,5 @@
+git.woa.com/jce/jce v1.2.0 h1:o75OgZYPg2+AWtF3m7YkC6lISOKtMmuj3H2UzD6e8Rg=
+git.woa.com/jce/jce v1.2.0/go.mod h1:tDEP7kGD+54CmvikQ3n5CS3YYwzSkiqKgXdOhFKpvq0=
 github.com/MoSunDay/concurrent-map v0.0.0-20191203013645-5995e9c56ca5 h1:92riBr20czUNkCCTXTxJ2cT7kR1Qp0Rsof7efzbFZXI=
 github.com/MoSunDay/concurrent-map v0.0.0-20191203013645-5995e9c56ca5/go.mod h1:jNRPvWf3J3eDBC77bLUfhShHr0WAfzx8mZSm/pzaobU=
 github.com/cpuguy83/go-md2man/v2 v2.0.2 h1:p1EgwI/C7NhT0JmVkwCD2ZBK8j4aeHQX2pMHHBfMQ6w=

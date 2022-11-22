@@ -1,5 +1,7 @@
 package sender
 
+import "41/internal/stype"
+
 type Sender interface {
-	Send([]byte) error
+	Send(*stype.RequestResponseRecord) error
 }
