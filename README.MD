@@ -5,7 +5,8 @@
 
 1. - [x] http1
 2. - [x] kafka
-3. - [] http2
-4. - [] http3
-5. - []protobuf
-6. - [] grpc
+3. - [x] protobuf
+4. - [x] jce
+5. - [x] grpc
+6. - [] http2
+7. - [] http3
