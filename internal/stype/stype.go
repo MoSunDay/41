@@ -1,15 +1,12 @@
-package main
+package stype
 
 import (
-	"41/internal/utils"
 	"bytes"
 	"strconv"
 	"time"
 
 	"github.com/google/gopacket/layers"
 )
-
-var confLogger = utils.GetLogger("stype")
 
 type RequestResponseRecord struct {
 	IP           string

@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"41/internal/stype"
 	"41/internal/utils"
 
 	kafka "github.com/segmentio/kafka-go"
@@ -18,10 +17,10 @@ type KafkaSender struct {
 	Host     string
 	Worker   int
 	Interval int
-	Producer chan *stype.RequestResponseRecord
+	Producer chan []byte
 }
 
-func (sender *KafkaSender) Send(item *stype.RequestResponseRecord) (err error) {
+func (sender *KafkaSender) Send(item []byte) (err error) {
 	sender.Producer <- item
 	return nil
 }
@@ -43,7 +42,7 @@ func (sender *KafkaSender) initConsumer() {
 			for {
 				select {
 				case item := <-sender.Producer:
-					messages = append(messages, kafka.Message{Value: item.EncodeToBytes()})
+					messages = append(messages, kafka.Message{Value: item})
 					if len(messages) >= 100 {
 						messages = make([]kafka.Message, 0, bufferLen)
 						err := conn.WriteMessages(context.Background(), messages...)
@@ -71,7 +70,7 @@ func NewKafkaSender(ctx *cli.Context) Sender {
 		Host:     ctx.String("kafka-host"),
 		Worker:   ctx.Int("kafka-worker"),
 		Interval: ctx.Int("kafka-send-interval"),
-		Producer: make(chan *stype.RequestResponseRecord, ctx.Int("kafka-send-queue")),
+		Producer: make(chan []byte, ctx.Int("kafka-send-queue")),
 	}
 	sender.initConsumer()
 	confLogger.Println("NewKafkaSender done")

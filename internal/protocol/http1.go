@@ -11,6 +11,8 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/urfave/cli/v2"
+
+	_ "fmt"
 )
 
 func http1Handler(packetSource *gopacket.PacketSource, ctx *cli.Context, sender sender.Sender) {
@@ -27,61 +29,92 @@ func http1Handler(packetSource *gopacket.PacketSource, ctx *cli.Context, sender 
 		defer ticker.Stop()
 		for range ticker.C {
 			timestamp := time.Now()
-			for _, fd := range cmap.Keys() {
-				if tmp, ok := cmap.Get(fd); ok {
-					item := tmp.(stype.RequestResponseRecord)
-					if len(item.ResponseBody) == 0 && time.Since(item.RequestTime).Seconds() > 30 {
-						item.ResponseBody = []byte("Request timeout")
+			for _, uuid := range cmap.Keys() {
+				if tmp, ok := cmap.Get(uuid); ok {
+					item := tmp.(stype.HTTPRequestResponseRecord)
+					if len(item.ResponseBody) == 0 && time.Since(item.RequestTime).Seconds() > 3 {
+						content := [][]byte{[]byte("Request timeout")}
+						// item.ResponseBody = []stype.HTTPResponse{{Seq: 0, PlayLoad: []byte("Request timeout")}}
+						item.ResponseBody = content
 						item.ResponseTime = timestamp
 						item.DstPort = 0
-						cmap.Pop(fd)
-						// item.EncodeToString()
-						sender.Send(&item)
+						cmap.Pop(uuid)
+						sender.Send(item.EncodeToBytes())
 					}
 				}
 			}
 		}
 	}()
 
-	for {
-		select {
-		case packet := <-packetSource.Packets():
-			parser := gopacket.NewDecodingLayerParser(
-				layers.LayerTypeEthernet,
-				&ethLayer,
-				&ipLayer,
-				&tcpLayer,
-			)
+	workerNum := 1
+	packetChans := make([]chan gopacket.Packet, workerNum)
+	for i := 0; i < workerNum; i++ {
+		ch := make(chan gopacket.Packet, 2500)
+		packetChans[i] = ch
+		go func(ch chan gopacket.Packet) {
+			for packet := range ch {
+				parser := gopacket.NewDecodingLayerParser(
+					layers.LayerTypeEthernet,
+					&ethLayer,
+					&ipLayer,
+					&tcpLayer,
+				)
 
-			foundLayerTypes := []gopacket.LayerType{}
-			parser.DecodeLayers(packet.Data(), &foundLayerTypes)
-			for _, layerType := range foundLayerTypes {
-				if layerType == layers.LayerTypeTCP {
-					if len(tcpLayer.BaseLayer.Payload) == 0 {
-						continue
-					}
-					timestamp := packet.Metadata().Timestamp
-					if tcpLayer.SrcPort == port {
-						fd := strconv.Itoa(int(tcpLayer.DstPort))
-						if tmp, ok := cmap.Get(fd); ok {
-							item := tmp.(stype.RequestResponseRecord)
-							item.ResponseBody = tcpLayer.BaseLayer.Payload
-							item.ResponseTime = timestamp
-							item.DstPort = tcpLayer.SrcPort
-							sender.Send(&item)
-							cmap.Pop(fd)
+				foundLayerTypes := []gopacket.LayerType{}
+				parser.DecodeLayers(packet.Data(), &foundLayerTypes)
+				for _, layerType := range foundLayerTypes {
+					if layerType == layers.LayerTypeTCP {
+						if len(tcpLayer.BaseLayer.Payload) == 0 {
+							continue
 						}
-					} else {
-						rrrecord := stype.RequestResponseRecord{
-							RequestBody: tcpLayer.BaseLayer.Payload,
-							RequestTime: timestamp,
-							SrcPort:     tcpLayer.SrcPort,
-							IP:          localIP,
+
+						timestamp := packet.Metadata().Timestamp
+						if len(tcpLayer.BaseLayer.Payload) < 100 {
+							confLogger.Println(string(tcpLayer.BaseLayer.Payload))
 						}
-						cmap.Set(strconv.Itoa(int(tcpLayer.SrcPort)), rrrecord)
+
+						if tcpLayer.SrcPort == port {
+							uuid := strconv.Itoa(int(tcpLayer.DstPort)) + strconv.FormatUint(uint64(tcpLayer.Seq), 10)
+							// confLogger.Println("resp:", uuid)
+							if tmp, ok := cmap.Pop(uuid); ok {
+								item := tmp.(stype.HTTPRequestResponseRecord)
+								// item.ResponseBody = append(item.ResponseBody, stype.HTTPResponse{Seq: tcpLayer.Seq, PlayLoad: tcpLayer.BaseLayer.Payload})
+								item.ResponseBody = append(item.ResponseBody, tcpLayer.BaseLayer.Payload)
+								if item.HasFullPayload() {
+									item.ResponseTime = timestamp
+									item.DstPort = tcpLayer.SrcPort
+									// item.EncodeToString()
+									sender.Send(item.EncodeToBytes())
+								} else {
+									item.ChunkACK = tcpLayer.Ack
+									uuid := strconv.Itoa(int(tcpLayer.DstPort)) + strconv.FormatUint(uint64(tcpLayer.Seq)+uint64(len(tcpLayer.BaseLayer.Payload)), 10)
+									// confLogger.Println("no full:", uuid)
+									cmap.Set(uuid, item)
+								}
+							}
+						} else {
+							uuid := strconv.Itoa(int(tcpLayer.SrcPort)) + strconv.FormatUint(uint64(tcpLayer.Ack), 10)
+							// confLogger.Println("create:", uuid)
+							if stype.HasRequestTitle(tcpLayer.BaseLayer.Payload) {
+								rrrecord := stype.HTTPRequestResponseRecord{
+									RequestBody: tcpLayer.BaseLayer.Payload,
+									RequestTime: timestamp,
+									SrcPort:     tcpLayer.SrcPort,
+									IP:          localIP,
+								}
+								cmap.Set(uuid, rrrecord)
+							}
+						}
 					}
 				}
 			}
+		}(ch)
+	}
+
+	for {
+		select {
+		case packet := <-packetSource.Packets():
+			packetChans[packet.Metadata().Timestamp.Nanosecond()%workerNum] <- packet
 		case <-ctx.Done():
 			confLogger.Println("41 http1 cap exiting")
 			return
