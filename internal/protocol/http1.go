@@ -16,7 +16,7 @@ import (
 )
 
 func http1Handler(packetSource *gopacket.PacketSource, ctx *cli.Context, sender sender.Sender) {
-	var confLogger = utils.GetLogger("http1Hander")
+	var confLogger = utils.GetLogger("http1Handler")
 	var ethLayer layers.Ethernet
 	var ipLayer layers.IPv4
 	var tcpLayer layers.TCP

@@ -11,8 +11,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func grpcHander(packetSource *gopacket.PacketSource, ctx *cli.Context, sender sender.Sender) {
-	var confLogger = utils.GetLogger("http1Hander")
+func grpcHandler(packetSource *gopacket.PacketSource, ctx *cli.Context, sender sender.Sender) {
+	var confLogger = utils.GetLogger("http1Handler")
 	var ethLayer layers.Ethernet
 	var ipLayer layers.IPv4
 	var tcpLayer layers.TCP
