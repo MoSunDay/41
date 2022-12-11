@@ -116,6 +116,9 @@ func http1Handler(packetSource *gopacket.PacketSource, ctx *cli.Context, sender 
 		case packet := <-packetSource.Packets():
 			packetChans[packet.Metadata().Timestamp.Nanosecond()%workerNum] <- packet
 		case <-ctx.Done():
+			for i := 0; i < workerNum; i++ {
+				close(packetChans[i])
+			}
 			confLogger.Println("41 http1 cap exiting")
 			return
 		}
